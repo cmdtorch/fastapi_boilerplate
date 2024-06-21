@@ -55,7 +55,7 @@ class TokenHelper:
         return token
 
     @staticmethod
-    def decode(token: str) -> TokenPayloadDecode:
+    def decode(token: str) -> dict:
         try:
             return jwt.decode(
                 token,
@@ -68,7 +68,7 @@ class TokenHelper:
             raise TokenExpiredException
 
     @staticmethod
-    def decode_expired_token(token: str) -> TokenPayloadDecode:
+    def decode_expired_token(token: str) -> dict:
         try:
             return jwt.decode(
                 token,
