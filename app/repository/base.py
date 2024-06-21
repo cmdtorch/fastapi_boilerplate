@@ -20,32 +20,46 @@ class BaseRepository:
         result = await db_helper.session.scalar(query)
         return result
 
-    async def list(self, order_by: list[ColumnElement] = None, **kwargs):
-        query = select(self.model).where(*(getattr(self.model, key) == value for key, value in kwargs.items()))
+    async def list(
+        self,
+        order_by: list[ColumnElement] = None,
+        offset: int = None,
+        limit: int = None,
+        **kwargs
+    ):
+        stmt = select(self.model)
+
+        if limit:
+            stmt = stmt.offset(offset).limit(limit)
+        stmt = stmt.where(*(getattr(self.model, key) == value for key, value in kwargs.items()))
+
         if order_by:
-            query = query.order_by(*order_by)
-        result = (await db_helper.session.scalars(query)).all()
+            stmt = stmt.order_by(*order_by)
+
+        result = (await db_helper.session.scalars(stmt)).all()
         return result
 
-    async def create(self, commit: bool = True, **kwargs):
+    async def create(self, **kwargs):
         obj = self.model(**kwargs)
         db_helper.session.add(obj)
-        await db_helper.session.flush()
-
-        if commit:
-            await db_helper.session.commit()
+        #await db_helper.session.flush()
         return obj
+
+    async def save(self, instance: Generic[T], flush: bool = False) -> Generic[T]:
+        db_helper.session.add(instance)
+        if flush:
+            await db_helper.session.flush()
+        return instance
 
     async def delete(self, **kwargs):
         query = select(self.model).where(*(getattr(self.model, key) == value for key, value in kwargs.items()))
         record = (await db_helper.session.scalars(query)).first()
         if record:
             await db_helper.session.delete(record)
-            await db_helper.session.commit()
         else:
             raise ValueError(f'Not found record with params {(getattr(self.model, key) == value for key, value in kwargs.items())}')
 
-    async def update(self, updates: dict, filter_: dict = None, instance: Generic[T] = None, commit: bool = True):
+    async def update(self, updates: dict, filter_: dict = None, instance: Generic[T] = None) -> Generic[T]:
         """
         Updates an existing record.
         :param updates: A dictionary of update
@@ -70,9 +84,6 @@ class BaseRepository:
                 else:
                     raise AttributeError(f"{key} is not a valid attribute of {self.model.__name__}")
 
-            # Commit the changes
-            if commit:
-                await db_helper.session.commit()
             return instance
         except SQLAlchemyError as e:
             await db_helper.session.rollback()
