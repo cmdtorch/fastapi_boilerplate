@@ -22,8 +22,8 @@ class AuthService:
 
     @classmethod
     async def get_current_active_user(cls, token: str = Depends(oauth2_scheme)):
-        email, _ = TokenHelper.decode(token)
-        user = await cls.get_user(email)
+        token_data = TokenHelper.decode(token)
+        user = await cls.get_user(token_data['sub'])
         if user is None:
             raise CredentialsException
 
