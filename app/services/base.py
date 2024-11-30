@@ -53,7 +53,7 @@ class BaseService(Generic[ModelType, RepositoryType]):
         search_data: SearchSchema | None,
         filter_: FilterSchema | None = None,
         select_load: list[ColumnElement] | None = None,
-    ) -> tuple[Iterable[Type[ModelType]], int]:
+    ) -> tuple[Iterable[Base], int]:
         try:
             sort_field = getattr(self.model, sort.sort_field)
         except AttributeError as e:
