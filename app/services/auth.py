@@ -1,29 +1,23 @@
-import os
-import jwt
-import datetime
-from fastapi import HTTPException, Depends
+from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.config import settings
-from core.models import db_helper
-from core.exceptions.auth import CredentialsException, IncorrectCredentialsException
-from core.models.user import User
-from services.user import user_service
-from core.utils.token import TokenHelper
+from app.core.config import settings
+from app.core.exceptions.auth import CredentialsException, IncorrectCredentialsException
+from app.core.models.user import User
+from app.core.utils.token import TokenHelper
+from app.services.user import user_service
 
 
 class AuthService:
-    hasher = CryptContext(schemes=['bcrypt'])
+    hasher = CryptContext(schemes=["bcrypt"])
     secret = settings.auth.secret_key
     oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
     @classmethod
-    async def get_current_active_user(cls, token: str = Depends(oauth2_scheme)):
+    async def get_current_active_user(cls, token: str = Depends(oauth2_scheme)) -> User:
         token_data = TokenHelper.decode(token)
-        user = await cls.get_user(token_data['sub'])
+        user = await cls.get_user(token_data["sub"])
         if user is None:
             raise CredentialsException
 
@@ -33,15 +27,15 @@ class AuthService:
         return user
 
     @classmethod
-    async def get_user(cls, email: str):
-        user: User = await user_service.get(email)
+    async def get_user(cls, email: str) -> User:
+        user: User = await user_service.get_by_filed(email=email)
 
         if user is None:
             raise CredentialsException
         return user
 
     @classmethod
-    async def authenticate_user(cls, email: str):
+    async def authenticate_user(cls, email: str) -> User:
         user = await cls.get_user(email)
         if not user:
             raise IncorrectCredentialsException
@@ -49,5 +43,5 @@ class AuthService:
         return user
 
     @classmethod
-    def verify_password(cls, password, encode_password):
+    def verify_password(cls, password: str, encode_password: str) -> bool:
         return cls.hasher.verify(password, encode_password)

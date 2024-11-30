@@ -1,7 +1,8 @@
 from enum import Enum
 from functools import wraps
+from typing import Any, Callable, Coroutine, ParamSpec, TypeVar
 
-from core.db import db_helper
+from app.core.db import db_helper
 
 
 class Propagation(Enum):
@@ -9,13 +10,19 @@ class Propagation(Enum):
     REQUIRED_NEW = "required_new"
 
 
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
 class Transactional:
-    def __init__(self, propagation: Propagation = Propagation.REQUIRED):
+    def __init__(self, propagation: Propagation = Propagation.REQUIRED) -> None:
         self.propagation = propagation
 
-    def __call__(self, function):
+    def __call__(
+        self, function: Callable[P, Coroutine[Any, Any, R]]
+    ) -> Callable[P, Coroutine[Any, Any, R]]:
         @wraps(function)
-        async def decorator(*args, **kwargs):
+        async def decorator(*args: P.args, **kwargs: P.kwargs) -> R:
             try:
                 if self.propagation == Propagation.REQUIRED:
                     result = await self._run_required(
@@ -43,12 +50,22 @@ class Transactional:
 
         return decorator
 
-    async def _run_required(self, function, args, kwargs) -> None:
+    async def _run_required(
+        self,
+        function: Callable[P, Coroutine[Any, Any, R]],
+        args: P.args,
+        kwargs: P.kwargs,
+    ) -> R:
         result = await function(*args, **kwargs)
         await db_helper.session.commit()
         return result
 
-    async def _run_required_new(self, function, args, kwargs) -> None:
+    async def _run_required_new(
+        self,
+        function: Callable[P, Coroutine[Any, Any, R]],
+        args: P.args,
+        kwargs: P.kwargs,
+    ) -> R:
         db_helper.session.begin()
         result = await function(*args, **kwargs)
         await db_helper.session.commit()

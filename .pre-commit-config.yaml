@@ -1,0 +1,19 @@
+repos:
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: 'v1.13.0'  # Use the version you need
+    hooks:
+      - id: mypy
+        args: ['--ignore-missing-imports']
+        additional_dependencies:
+          - pydantic
+          - pydantic-settings
+          - types-pytz
+
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: 'v0.8.0'  # Use the version you need
+    hooks:
+      # Run the linter.
+      - id: ruff
+        args: ['--fix']  # Add any ruff arguments here
+      # Run the formatter.
+      - id: ruff-format

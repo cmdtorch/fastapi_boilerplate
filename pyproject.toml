@@ -1,20 +1,106 @@
-[tool.poetry]
-package-mode = false
+[project]
+name = "fastapi-app-template"
+version = "0.1.4"
+description = "Template for FastAPI project"
+readme = "README.md"
+requires-python = ">=3.12.7"
+dependencies = [
+    "alembic>=1.14.0",
+    "fastapi[standard]>=0.115.5",
+    "google-auth>=2.36.0",
+    "httpx>=0.27.2",
+    "pydantic-settings>=2.6.1",
+    "pyjwt>=2.10.0",
+    "pytz>=2024.2",
+    "requests>=2.32.3",
+    "sqlalchemy[postgresql-asyncpg]>=2.0.36",
+    "uvicorn>=0.32.1",
+]
 
-[tool.poetry.dependencies]
-python = "^3.12"
-fastapi = "^0.115.0"
-uvicorn = {extras = ["standard"], version = "^0.29.0"}
-pydantic = {extras = ["email"], version = "^2.7.1"}
-pydantic-settings = "^2.2.1"
-sqlalchemy = {extras = ["asyncio"], version = "^2.0.30"}
-asyncpg = "^0.29.0"
-alembic = "^1.13.1"
-pyjwt = "^2.8.0"
-google-auth = "^2.29.0"
-pytz = "^2024.1"
-passlib = "^1.7.4"
+[dependency-groups]
+dev = [
+    "mypy>=1.13.0",
+    "pre-commit>=4.0.1",
+    "ruff>=0.8.0",
+]
 
-[tool.poetry.group.dev.dependencies]
-black = "^24.4.2"
+[tool.mypy]
+strict = true
+ignore_missing_imports = true
+allow_subclassing_any = true
+allow_untyped_calls = true
+pretty = true
+show_error_codes = true
+implicit_reexport = true
+allow_untyped_decorators = true
+warn_unused_ignores = false
+warn_return_any = false
+namespace_packages = true
+exclude = ["venv", ".venv", "alembic"]
 
+[tool.ruff]
+target-version = "py312"
+exclude = ["alembic"]
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",   # Error
+    "F",   # Pyflakes
+    "W",   # Pycodestyle
+    "C90", # McCabe complexity
+    "I",   # Isort
+    "N",   # pep8-naming
+    # "D",   # Pydocstyle
+    "ANN", # Pytype annotations
+    "S",   # Bandit
+    "B",   # Bugbear
+    # "COM", # Commas
+    "C4",  # Comprehensions
+    # "ISC", # Implicit string concat
+    "PIE", # Unnecessary code
+    "T20", # Catch prints
+    "PYI", # validate pyi files
+    "Q",   # Checks for quotes
+    "RSE", # Checks raise statements
+    "RET", # Checks return statements
+    "SLF", # Self checks
+    "SIM", # Simplificator
+    "PTH", # Pathlib checks
+    "ERA", # Checks for commented out code
+    "PL",  # PyLint checks
+    "RUF", # Specific to Ruff checks
+]
+ignore = [
+    "D105",    # Missing docstring in magic method
+    "D107",    # Missing docstring in __init__
+    "B008",    # Do not perform function calls in argument defaults
+    "D211",    # No blank lines allowed before class docstring
+    "D212",    # Multi-line docstring summary should start at the first line
+    "D401",    # First line should be in imperative mood
+    "D104",    # Missing docstring in public package
+    "D100",    # Missing docstring in public module
+    "D202",    # No blank lines allowed after function docstring
+    "ANN401",  # typing.Any are disallowed in `**kwargs
+    "PLR0913", # Too many arguments for function call
+    "D106",    # Missing docstring in public nested class
+]
+mccabe = { max-complexity = 10 }
+
+
+[tool.ruff.lint.pyupgrade]
+# Preserve types, even if a file imports `from __future__ import annotations`.
+keep-runtime-typing = true
+
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "S101", # Use of assert detected
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+ignore-decorators = ["typing.overload"]
+
+[tool.ruff.lint.pylint]
+allow-magic-value-types = ["int", "str", "float", "bytes"]

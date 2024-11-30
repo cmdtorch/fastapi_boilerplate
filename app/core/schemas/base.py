@@ -1,13 +1,14 @@
+import contextlib
 import datetime
-from typing import Optional, ClassVar, TypeVar
+from typing import ClassVar, ForwardRef, TypeVar
 
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from core.models import Base
+from app.core.models import Base
 
 UNCHANGED_VALUE = "UNCHANGED_VALUE"
 
-ModelType = TypeVar('ModelType', bound=Base)
+ModelType = TypeVar("ModelType", bound=Base)
 
 
 class UnchangedType:
@@ -38,46 +39,62 @@ class PaddingSchema(BaseModel):
 
 
 class SortSchema(BaseModel):
-    sort_field: str = Field(default='id')
+    sort_field: str = Field(default="id")
     desc: bool = Field(default=True)
     sort_case_ids: list[int] | None
 
-    @field_validator('sort_case_ids', mode='before')
+    @field_validator("sort_case_ids", mode="before")
     @classmethod
-    def convert_value(cls, sort_case_ids: str):
+    def convert_value(cls, sort_case_ids: str) -> None | list[int]:
         if not sort_case_ids:
             return None
-        sort_case_ids = sort_case_ids.split(",")  # type: ignore
+        sort_case_ids_list = sort_case_ids.split(",")
         try:
-            sort_case_ids = [int(v) for v in sort_case_ids]  # type: ignore
+            return [int(v) for v in sort_case_ids_list]
         except ValueError:
             return None
-        return sort_case_ids
+
+
+SearchItemRef = ForwardRef("SearchItem")
+
+
+class SearchItem(BaseModel):
+    name: str
+    value: str | SearchItemRef  # type: ignore
 
 
 class SearchSchema(BaseModel):
-    query: Optional[str] = None
-    search_fields: Optional[list[str]] = Field(None, alias='fields')
+    search: list[SearchItem]
+
+
+FilterItemRef = ForwardRef("FilterItem")
 
 
 class FilterItem(BaseModel):
     name: str
-    value: str | int | bool
+    value: str | int | bool | datetime.datetime | FilterItemRef  # type: ignore
 
-    @field_validator('value', mode='before')
+    @field_validator("value", mode="before")
     @classmethod
-    def convert_value(cls, value: str):
-        if value in ['true', 'false']:
-            return True if value == 'true' else False  # type: ignore
-        try:
+    def convert_value(
+        cls,
+        value: str,
+    ) -> dict[str, str] | bool | int | str | datetime.datetime:
+        # Nest filter
+        if isinstance(value, dict):
+            return value
+        # Boolean value
+        if value in ["true", "false"]:
+            return value == "true"
+        # DateTime
+        with contextlib.suppress(ValueError):
+            return datetime.datetime.strptime(value, "%Y-%m-%d")
+        # Integer
+        with contextlib.suppress(ValueError):
             value = int(value)  # type: ignore
-        except ValueError:
-            pass
         return value
 
 
 class FilterSchema(BaseModel):
     filters_or: list[FilterItem]
     filters_and: list[FilterItem]
-
-

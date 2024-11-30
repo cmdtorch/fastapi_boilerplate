@@ -1,7 +1,4 @@
-from typing import Optional
-
-from pydantic import BaseModel
-from pydantic import PostgresDsn
+from pydantic import BaseModel, PostgresDsn
 from pydantic_settings import (
     BaseSettings,
     SettingsConfigDict,
@@ -15,7 +12,7 @@ class InfoConfig(BaseModel):
 
 
 class RunConfig(BaseModel):
-    host: str = "0.0.0.0"
+    host: str = "0.0.0.0"  # noqa: S104
     port: int = 8000
 
 
@@ -49,12 +46,13 @@ class DatabaseConfig(BaseModel):
 class AuthConfig(BaseModel):
     access_token_time: int = 900
     refresh_token_time: int = 15_000_000
-    secret_key: str = 'YOUR_SECRET_KEY'
-    algorithm: str = 'HS256'
+    secret_key: str = "YOUR_SECRET_KEY"
+    algorithm: str = "HS256"
+    debug_password: str = "123456"
 
 
 class SentryConfig(BaseModel):
-    dsn: Optional[str] = None
+    dsn: str | None = None
     traces_sample_rate: float = 1.0
     profiles_sample_rate: float = 1.0
 
@@ -81,4 +79,4 @@ class Settings(BaseSettings):
     pagination: PaginationConfig = PaginationConfig()
 
 
-settings = Settings()
+settings = Settings()  # type: ignore
