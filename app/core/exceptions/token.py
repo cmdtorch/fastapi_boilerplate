@@ -1,5 +1,6 @@
 from fastapi import status
-from core.exceptions.base import CustomException
+
+from app.core.exceptions.base import CustomException
 
 
 class TokenExpiredException(CustomException):

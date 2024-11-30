@@ -1,5 +1,4 @@
-from http import HTTPStatus
-from fastapi import HTTPException, status
+from fastapi import status
 
 from .base import CustomException
 
@@ -7,7 +6,7 @@ from .base import CustomException
 class UserDoesNotExistException(CustomException):
     code = status.HTTP_400_BAD_REQUEST
     error_code = status.HTTP_400_BAD_REQUEST
-    message = 'User with this email not found'
+    message = "User with this email not found"
 
 
 class InvalidSocialTokenException(CustomException):

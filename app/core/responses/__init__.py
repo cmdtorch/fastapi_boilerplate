@@ -1,5 +1,3 @@
-__all__ = (
-    "ExceptionResponses",
-)
+__all__ = ("ExceptionResponses",)
 
 from .base import ExceptionResponses

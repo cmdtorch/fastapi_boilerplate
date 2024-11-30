@@ -1,24 +1,27 @@
-from core.exceptions.auth import WrongTimezoneException, UserDoesNotExistException
-from core.models import User
-from core.schemas.auth import UserAuthData
-from repository.user import user_repository
-from core.utils import is_valid_timezone
+from app.core.db.transactional import Propagation, Transactional
+from app.core.exceptions.auth import WrongTimezoneException
+from app.core.models import User
+from app.core.schemas.auth import UserAuthData
+from app.core.utils import is_valid_timezone
+from app.repository.user import UserRepository, user_repository
+
+from .base import BaseService
 
 
-class UserService:
+class UserService(BaseService[User, UserRepository]):
+    @Transactional(Propagation.REQUIRED)
+    async def create_user(self, user_data: UserAuthData) -> User:
+        user = User(**user_data.model_dump())
+        return await self.repository.save(user)
 
-    async def get(self, email: str) -> User:
-        user = await user_repository.get(email=email)
-        if user is None:
-            raise UserDoesNotExistException
-        return user
-
-    async def update_on_login(self, user: User, auth_data: UserAuthData):
+    async def update_on_login(self, user: User, auth_data: UserAuthData) -> User:
         if not is_valid_timezone(auth_data.timezone):
             raise WrongTimezoneException
 
-        user = await user_repository.update(updates=auth_data.model_dump(exclude={'soc_type'}), instance=user)
-        return user
+        return await user_repository.update(
+            updates=auth_data.model_dump(exclude={"soc_type"}),
+            instance=user,
+        )
 
 
-user_service = UserService()
+user_service = UserService(User, user_repository)

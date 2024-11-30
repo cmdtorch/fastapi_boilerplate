@@ -1,15 +1,15 @@
+from collections.abc import AsyncGenerator
 from contextvars import ContextVar, Token
-from typing import AsyncGenerator, Union
 
 from sqlalchemy.ext.asyncio import (
-    create_async_engine,
     AsyncEngine,
+    AsyncSession,
+    async_scoped_session,
     async_sessionmaker,
-    AsyncSession, async_scoped_session,
+    create_async_engine,
 )
 
-from core.config import settings
-
+from app.core.config import settings
 
 session_context: ContextVar[str] = ContextVar("session_context")
 
@@ -41,7 +41,7 @@ class DatabaseHelper:
             autocommit=False,
             expire_on_commit=False,
         )
-        self.session: Union[AsyncSession, async_scoped_session] = async_scoped_session(
+        self.session: AsyncSession | async_scoped_session = async_scoped_session(
             session_factory=self.session_factory,
             scopefunc=get_session_id,
         )
@@ -53,12 +53,11 @@ class DatabaseHelper:
         async with self.session_factory() as session:
             yield session
 
-    def set_session_context(self, session_id: str) -> Token:
+    def set_session_context(self, session_id: str) -> Token:  # type: ignore
         return session_context.set(session_id)
 
-    def reset_session_context(self, context: Token) -> None:
+    def reset_session_context(self, context: Token) -> None:  # type: ignore
         session_context.reset(context)
-
 
 
 db_helper = DatabaseHelper(

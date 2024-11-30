@@ -1,34 +1,15 @@
 import uvicorn
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, Request
-from fastapi.responses import ORJSONResponse
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import ORJSONResponse
 from starlette.responses import JSONResponse
 
-from core.config import settings
-from api import router as api_router
-from api.api_v1.mock_auth import main_route
-from core.dependencies.logging import Logging
-from core.exceptions.base import CustomException
-from core.middlewares.sqlalchemy import SQLAlchemyMiddleware
-from core.models import db_helper
-
-
-# If you use sentry install sentry_sdk and uncomment code below
-# if not settings.debug and settings.sentry.dsn:
-#     sentry_sdk.init(
-#         dsn=settings.sentry.dsn,
-#         traces_sample_rate=settings.sentry.traces_sample_rate,
-#         profiles_sample_rate=settings.sentry.profiles_sample_rate,
-#     )
-
-
-@asynccontextmanager
-async def lifespan(fastapi_app: FastAPI):
-    # startup
-    yield
-    # shutdown
-    await db_helper.dispose()
+from app.api import router as api_router
+from app.api.api_v1.mock_auth import main_route
+from app.core.config import settings
+from app.core.dependencies.logging import Logging
+from app.core.exceptions.base import CustomException
+from app.core.middlewares.sqlalchemy import SQLAlchemyMiddleware
 
 
 def set_cors(fastapi_app: FastAPI) -> None:
@@ -54,7 +35,10 @@ def set_routers(fastapi_app: FastAPI) -> None:
 def set_listeners(fastapi_app: FastAPI) -> None:
     # Exception handler
     @fastapi_app.exception_handler(CustomException)
-    async def custom_exception_handler(request: Request, exc: CustomException):
+    async def custom_exception_handler(
+        _: Request,
+        exc: CustomException,
+    ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.code,
             content={"error_code": exc.error_code, "message": exc.message},
@@ -69,7 +53,6 @@ def init_app() -> FastAPI:
         docs_url="/docs" if settings.debug else None,
         redoc_url="/redoc" if settings.debug else None,
         default_response_class=ORJSONResponse,
-        lifespan=lifespan,
         debug=settings.debug,
         dependencies=[Depends(Logging)],
     )

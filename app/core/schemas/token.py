@@ -1,10 +1,4 @@
-from enum import Enum
-from typing import Optional, Literal
-
-from typing_extensions import Self
-from pydantic import BaseModel, model_validator
-
-from core.config import settings
+from pydantic import BaseModel
 
 
 class TokenPayloadEncode(BaseModel):
