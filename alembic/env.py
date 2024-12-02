@@ -5,7 +5,7 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from alembic import context
+from alembic import context  # type: ignore
 
 from app.core.config import settings
 from app.core.models import Base
@@ -29,6 +29,7 @@ target_metadata = Base.metadata
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+print(settings.db.url)
 config.set_main_option("sqlalchemy.url", str(settings.db.url))
 
 
