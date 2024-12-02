@@ -6,14 +6,16 @@ readme = "README.md"
 requires-python = ">=3.12.7"
 dependencies = [
     "alembic>=1.14.0",
+    "asyncpg>=0.30.0",
     "fastapi[standard]>=0.115.5",
     "google-auth>=2.36.0",
     "httpx>=0.27.2",
+    "passlib>=1.7.4",
     "pydantic-settings>=2.6.1",
     "pyjwt>=2.10.0",
     "pytz>=2024.2",
     "requests>=2.32.3",
-    "sqlalchemy[postgresql-asyncpg]>=2.0.36",
+    "sqlalchemy[asyncio]>=2.0.36",
     "uvicorn>=0.32.1",
 ]
 
@@ -21,7 +23,18 @@ dependencies = [
 dev = [
     "mypy>=1.13.0",
     "pre-commit>=4.0.1",
+    "pytest-asyncio>=0.24.0",
+    "pytest>=8.3.4",
     "ruff>=0.8.0",
+    "pytest-env>=1.1.5",
+]
+
+
+[tool.pytest.ini_options]
+asyncio_mode="auto"
+asyncio_default_fixture_loop_scope = "session"
+env = [
+    "ENV_STATE=test",
 ]
 
 [tool.mypy]
