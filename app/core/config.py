@@ -1,3 +1,6 @@
+import os
+from typing import ClassVar
+
 from pydantic import BaseModel, PostgresDsn
 from pydantic_settings import (
     BaseSettings,
@@ -62,8 +65,10 @@ class PaginationConfig(BaseModel):
 
 
 class Settings(BaseSettings):
+    env_state: ClassVar[str] = os.getenv("ENV_STATE", "production")
+
     model_config = SettingsConfigDict(
-        env_file=(".env.template", ".env"),
+        env_file=".env.test" if env_state == "test" else (".env.template", ".env"),
         case_sensitive=False,
         env_nested_delimiter="__",
         env_prefix="APP_CONFIG__",
