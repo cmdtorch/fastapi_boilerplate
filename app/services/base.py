@@ -1,22 +1,17 @@
 import datetime
-from typing import Generic, Iterable, Type, TypeVar
+from typing import Any, Generic, Type, TypeVar
+from uuid import UUID
 
 from sqlalchemy import ColumnElement
 
 from app.core.db.transactional import Propagation, Transactional
-from app.core.exceptions.entity import FieldNotFound, RecordNotFound
-from app.core.models import Base
-from app.core.schemas.base import (
-    CrudSchema,
-    FilterSchema,
-    PaddingSchema,
-    SearchSchema,
-    SortSchema,
-)
+from app.core.exceptions.entity import RecordNotFound
+from app.models import Base
 from app.repository.base import BaseRepository
+from app.schemas.base import CrudSchema, PaginationGetter
 
 ModelType = TypeVar("ModelType", bound=Base)
-RepositoryType = TypeVar("RepositoryType", bound=BaseRepository)
+RepositoryType = TypeVar("RepositoryType", bound=BaseRepository)  # type: ignore
 CreateSchemaType = TypeVar("CreateSchemaType", bound=CrudSchema)
 UpdateSchemaType = TypeVar("UpdateSchemaType", bound=CrudSchema)
 
@@ -28,69 +23,71 @@ class BaseService(Generic[ModelType, RepositoryType]):
 
     async def get(
         self,
-        pk: int,
-        select_load: list[ColumnElement | dict[str, ColumnElement]] | None = None,
-    ) -> ModelType:
-        obj = await self.repository.get(select_load, id=pk)
-        if obj is None:
-            raise RecordNotFound
-        return obj
-
-    async def get_by_filed(
-        self,
         select_load: list[ColumnElement] | None = None,
-        **kwargs: str | int | datetime.datetime,
+        **kwargs: str | int | datetime.datetime | UUID,
     ) -> ModelType:
-        obj = await self.repository.get(select_load, **kwargs)
+        """
+        Get an object by its primary key or other fields.
+        If the object is not found, a RecordNotFound exception is raised.
+        :param select_load: Optional list of columns to load.
+        :param kwargs: Additional fields to filter the object.
+        :return: The object if found.
+        """
+        obj = await self.repository.get(select_load, **kwargs)  # type: ignore
         if obj is None:
             raise RecordNotFound
         return obj
 
     async def list(
         self,
-        padding: PaddingSchema,
-        sort: SortSchema,
-        search_data: SearchSchema | None,
-        filter_: FilterSchema | None = None,
+        padding: PaginationGetter,
+        order_by: list[ColumnElement] | None = None,
+        order_by_desc: bool = False,
         select_load: list[ColumnElement] | None = None,
-    ) -> tuple[Iterable[Base], int]:
-        try:
-            sort_field = getattr(self.model, sort.sort_field)
-        except AttributeError as e:
-            raise FieldNotFound from e
-
+        **kwargs: str | int | datetime.datetime | UUID,
+    ) -> tuple[list[Type[ModelType]], int]:
+        """
+        List objects with pagination and optional sorting.
+        :param padding: Pagination object containing offset and limit.
+        :param order_by: Optional list of columns to sort by.
+        :param order_by_desc: Boolean indicating if sorting should be descending.
+        :param select_load: Optional list of columns to load.
+        :param kwargs: Additional fields to filter the objects.
+        :return: A tuple containing a list of objects and the total count.
+        """
         objs, count = await self.repository.list(
-            [sort_field],
-            sort.desc,
-            search_data,
+            order_by,
+            order_by_desc,
             padding.offset,
             padding.limit,
-            filter_,
             select_load,
-            sort.sort_case_ids,
+            **kwargs,
         )
         return objs, count
 
     @Transactional(Propagation.REQUIRED)
-    async def create(self, create_schema: CreateSchemaType) -> ModelType:
-        obj = self.model(**create_schema.model_dump(exclude=create_schema.extra_fields))
+    async def create(self, create_schema: CreateSchemaType, **kwargs: Any) -> ModelType:
+        obj = self.model(**create_schema.model_dump(), **kwargs)
         await self.repository.save(obj)
         return obj
 
     @Transactional(Propagation.REQUIRED)
-    async def update(self, pk: int, update_schema: UpdateSchemaType) -> ModelType:
-        obj = await self.get(pk)
+    async def update(
+        self, pk: int | UUID, update_schema: UpdateSchemaType
+    ) -> ModelType:
+        obj = await self.get(id=pk)
         await self.repository.update(
             update_schema.model_dump(
-                exclude_defaults=True,
-                exclude=update_schema.extra_fields,
+                exclude=update_schema.extra_fields
+                if hasattr(update_schema, "extra_fields")
+                else None,
             ),
-            instance=obj,
+            id=obj.id,
         )
         return obj
 
     @Transactional(Propagation.REQUIRED)
-    async def delete(self, pk: int) -> None:
+    async def delete(self, pk: int | UUID) -> None:
         try:
             await self.repository.delete(id=pk)
         except ValueError as e:

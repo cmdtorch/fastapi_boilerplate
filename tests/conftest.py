@@ -10,9 +10,9 @@ from alembic import command  # type: ignore[attr-defined]
 from alembic.config import Config as AlembicConfig
 from app.core.config import settings
 from app.core.db.db_helper import DatabaseHelper
-from app.core.models import User
 from app.core.utils.token import TokenHelper
 from app.main import app
+from app.models import User
 
 
 @pytest.fixture(scope="session")

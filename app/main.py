@@ -5,7 +5,7 @@ from fastapi.responses import ORJSONResponse
 from starlette.responses import JSONResponse
 
 from app.api import router as api_router
-from app.api.api_v1.mock_auth import main_route
+from app.api.v1.mock_auth import main_route
 from app.core.config import settings
 from app.core.dependencies.logging import Logging
 from app.core.exceptions.base import CustomException

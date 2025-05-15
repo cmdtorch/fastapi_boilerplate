@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from app.core.schemas.auth import SignIn
+from app.schemas.auth import SignIn
 
 test_firebase_token = os.getenv("TEST_FIREBASE_TOKEN", "default_firebase_token")
 test_password = os.getenv("TEST_PASSWORD", "default_password")

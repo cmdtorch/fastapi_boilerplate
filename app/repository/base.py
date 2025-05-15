@@ -1,94 +1,33 @@
 import datetime
-from collections.abc import Iterable
-from typing import Any, Callable, TypeVar
+from typing import Any, Generic, TypeVar
+from uuid import UUID
 
 from sqlalchemy import (
-    Case,
     ColumnElement,
-    Select,
-    and_,
     asc,
-    case,
     desc,
     func,
-    or_,
     select,
 )
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.db import db_helper
-from app.core.models import Base
-from app.core.schemas.base import FilterItem, FilterSchema, SearchItem, SearchSchema
+from app.models import Base
 
-T = TypeVar("T", bound=Base)
-
-
-class BaseFilter:
-    def apply(self, stmt: Select, model: Base) -> Select:
-        """Method to apply the filter to the query."""
-        raise NotImplementedError
+ModelType = TypeVar("ModelType", bound=Base)
 
 
-class ConditionFilter(BaseFilter):
-    def __init__(
-        self,
-        filters: list[FilterItem],
-        condition: Callable[[Any], None],
-    ) -> None:
-        self.filters = filters
-        self.condition = condition
-
-    def apply(self, stmt: Select, model: type[Base]) -> Select:
-        conditions = []
-        for f in self.filters:
-            if isinstance(f.value, FilterItem):
-                related_model = getattr(model, f.name).property.mapper.class_
-                if getattr(model, f.name).property.uselist:
-                    conditions.append(
-                        getattr(model, f.name).any(
-                            getattr(related_model, f.value.name) == f.value.value,
-                        ),
-                    )
-                else:
-                    conditions.append(
-                        getattr(model, f.name).has(
-                            getattr(related_model, f.value.name) == f.value.value,
-                        ),
-                    )
-            else:
-                conditions.append(getattr(model, f.name) == f.value)
-        return stmt.where(self.condition(*conditions))
-
-
-class SearchFilter(BaseFilter):
-    def __init__(self, search: SearchSchema) -> None:
-        self.search = search
-
-    def apply(self, stmt: Select, model: type[Base]) -> Select:
-        if not self.search or not self.search.search:
-            return stmt
-        search_conditions = []
-        for s in self.search.search:
-            if isinstance(s.value, SearchItem):
-                related_model = getattr(model, s.name).property.mapper.class_
-                search_conditions.append(
-                    getattr(related_model, s.value.name).contains(s.value.value),
-                )
-            else:
-                search_conditions.append(getattr(model, s.name).contains(s.value))
-        return stmt.where(or_(*search_conditions)).distinct()
-
-
-class BaseRepository:
-    def __init__(self, model: type[Base]) -> None:
+class BaseRepository(Generic[ModelType]):
+    def __init__(self, model: type[ModelType]) -> None:
         self.model = model
 
     async def get(
         self,
         select_load: list[ColumnElement | dict[str, ColumnElement]] | None = None,
-        **kwargs: str | int | datetime.datetime,
-    ) -> Base:
+        session: AsyncSession | None = None,
+        **kwargs: Any,
+    ) -> ModelType | None:
         query = select(self.model).where(
             *(getattr(self.model, key) == value for key, value in kwargs.items()),
         )
@@ -106,36 +45,23 @@ class BaseRepository:
             query = query.options(
                 *options,
             )
+        if session:
+            return await session.scalar(query)
         return await db_helper.session.scalar(query)
 
     async def list(
         self,
         order_by: list[ColumnElement] | None = None,
         order_desc: bool = True,
-        search: SearchSchema | None = None,
         offset: int | None = None,
         limit: int | None = None,
-        filter_: FilterSchema | None = None,
         select_load: list[ColumnElement] | None = None,
-        sort_case_ids: list[int] | None = None,
-        **kwargs: str | int | datetime.datetime,
-    ) -> tuple[Iterable[Base], int]:
+        **kwargs: str | int | datetime.datetime | UUID,
+    ) -> tuple[list[ModelType], int]:
         stmt = select(self.model)
         stmt = stmt.where(
             *(getattr(self.model, key) == value for key, value in kwargs.items()),
         )
-
-        # Apply OR filters if they exist
-        if filter_ and filter_.filters_or:
-            stmt = ConditionFilter(filter_.filters_or, or_).apply(stmt, self.model)
-
-        # Apply AND filters if they exist
-        if filter_ and filter_.filters_and:
-            stmt = ConditionFilter(filter_.filters_and, and_).apply(stmt, self.model)
-
-        # Apply Search filter
-        if search:
-            stmt = SearchFilter(search).apply(stmt, self.model)
 
         count_stmt = select(func.count()).select_from(stmt.subquery())
 
@@ -155,19 +81,14 @@ class BaseRepository:
                 *options,
             )
 
-        if limit:
+        if limit and offset:
             stmt = stmt.offset(offset).limit(limit)
-
-        if sort_case_ids:
-            case_conditions = [
-                (self.model.id == id_, index) for index, id_ in enumerate(sort_case_ids)
-            ]
-            case_stmt: Case = case(*case_conditions, else_=len(sort_case_ids))
-            stmt = stmt.order_by(case_stmt)
 
         if order_by:
             sort_type = desc if order_desc else asc
-            stmt = stmt.order_by(sort_type(*order_by))
+            stmt = stmt.order_by(
+                sort_type(order_by[0]), *(desc(o) for o in order_by[1:])
+            )
 
         result = (await db_helper.session.scalars(stmt)).all()
 
@@ -177,18 +98,26 @@ class BaseRepository:
 
         return result, count
 
-    async def create(self, **kwargs: str | int | datetime.datetime) -> Base:
+    async def create(self, **kwargs: str | int | UUID | datetime.datetime) -> Base:
         obj = self.model(**kwargs)
         db_helper.session.add(obj)
         return obj
 
-    async def save(self, instance: T, flush: bool | None = False) -> T:
-        db_helper.session.add(instance)
+    async def save(
+        self,
+        instance: ModelType,
+        session: AsyncSession | None = None,
+        flush: bool | None = False,
+    ) -> ModelType:
+        session_ = session if session else db_helper.session
+        session_.add(instance)
         if flush:
-            await db_helper.session.flush()
+            await session_.flush()
+        if session:
+            await session_.commit()
         return instance
 
-    async def delete(self, **kwargs: str | int | datetime.datetime) -> None:
+    async def delete(self, **kwargs: str | int | UUID | datetime.datetime) -> None:
         query = select(self.model).where(
             *(getattr(self.model, key) == value for key, value in kwargs.items()),
         )
@@ -203,57 +132,36 @@ class BaseRepository:
 
     async def update(
         self,
-        updates: dict[str, str | int | datetime.datetime],
-        filter_: dict[str, str | int | datetime.datetime] | None = None,
-        instance: T | None = None,
-    ) -> T:
+        updates: dict[str, Any],
+        **kwargs: Any,
+    ) -> ModelType:
         """
         Updates an existing record.
         :param updates: A dictionary of update
-        :param filter_: A dictionary of filter for record
-        (can be none if the instance is installed)
-        :param instance: Instance for update (if instance is none, get from db)
+        **kwargs: Key-value pairs corresponding to the fields and
+         their updated values in the model.
         :return: The updated model instance
-        :raises: Exception if the update fails
         """
-        try:
-            if filter_ is None and instance is None:
+
+        query = select(self.model).where(
+            *(getattr(self.model, key) == value for key, value in kwargs.items()),
+        )
+        instance = (await db_helper.session.scalars(query)).first()
+
+        # Apply updates
+        for key, value in updates.items():
+            if hasattr(instance, key):
+                setattr(instance, key, value)
+            else:
                 raise AttributeError(
-                    "Requires at least one parameter: filter_ or instance",
+                    f"{key} is not a valid attribute of {self.model.__name__}",
                 )
-
-            # Fetch the record
-            if instance is None and filter_:
-                query = select(self.model).where(
-                    *(
-                        getattr(self.model, key) == value
-                        for key, value in filter_.items()
-                    ),
-                )
-                instance = (await db_helper.session.scalars(query)).first()
-
-            # Apply updates
-            for key, value in updates.items():
-                if hasattr(instance, key):
-                    setattr(instance, key, value)
-                else:
-                    raise AttributeError(
-                        f"{key} is not a valid attribute of {self.model.__name__}",
-                    )
-
-            return instance  # type: ignore
-        except SQLAlchemyError as e:
-            await db_helper.session.rollback()
-            raise e
-
-        except Exception as e:  # type: ignore
-            await db_helper.session.rollback()
-            raise e
+        return instance
 
     async def count(
         self,
         by_field: ColumnElement,
-        **kwargs: str | int | datetime.datetime,
+        **kwargs: str | int | datetime.datetime | UUID,
     ) -> int:
         stmt = select(func.count(by_field)).where(
             *(getattr(self.model, key) == value for key, value in kwargs.items()),

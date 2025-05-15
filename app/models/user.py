@@ -1,8 +1,8 @@
 from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base
-from app.core.models.mixins.base import CreateUpdateDateMixin, IntIdPkMixin
+from app.models import Base
+from app.models.mixins.base import CreateUpdateDateMixin, IntIdPkMixin
 
 
 class User(Base, IntIdPkMixin, CreateUpdateDateMixin):

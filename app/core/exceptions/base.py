@@ -1,7 +1,7 @@
 from http import HTTPStatus
 from typing import Any, ClassVar, Type
 
-from app.core.schemas.base import ExceptionResponseSchema
+from app.schemas.base import ExceptionResponseSchema
 
 
 class CustomException(Exception):  # noqa: N818

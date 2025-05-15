@@ -71,9 +71,11 @@ class Settings(BaseSettings):
         env_file=".env.test" if env_state == "test" else (".env.template", ".env"),
         case_sensitive=False,
         env_nested_delimiter="__",
-        env_prefix="APP_CONFIG__",
     )
     debug: bool = False
+
+    # CORS
+    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:8000", "http://localhost:3000"]
 
     info: InfoConfig = InfoConfig()
     run: RunConfig = RunConfig()

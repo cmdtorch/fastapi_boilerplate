@@ -1,8 +1,8 @@
 from fastapi import APIRouter
 
 from app.core.exceptions.token import WrongTokenScopeException
-from app.core.schemas.token import AccessRefreshToken
 from app.core.utils.token import TokenHelper
+from app.schemas.token import AccessRefreshToken
 
 user_route = APIRouter(tags=["User"])
 

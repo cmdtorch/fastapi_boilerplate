@@ -3,9 +3,9 @@ from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 
 from app.core.config import settings
-from app.core.exceptions.auth import CredentialsException, IncorrectCredentialsException
-from app.core.models.user import User
-from app.core.utils.token import TokenHelper
+from app.core.exceptions.auth import CredentialsException
+from app.core.security.jwt import JWTHelper
+from app.models import User
 from app.services.user import user_service
 
 
@@ -16,8 +16,8 @@ class AuthService:
 
     @classmethod
     async def get_current_active_user(cls, token: str = Depends(oauth2_scheme)) -> User:
-        token_data = TokenHelper.decode(token)
-        user = await cls.get_user(token_data["sub"])
+        token_data = JWTHelper.decode(token)
+        user = await cls._get_user(token_data["sub"])
         if user is None:
             raise CredentialsException
 
@@ -27,21 +27,9 @@ class AuthService:
         return user
 
     @classmethod
-    async def get_user(cls, email: str) -> User:
-        user: User = await user_service.get_by_filed(email=email)
+    async def _get_user(cls, email: str) -> User:
+        user: User = await user_service.get(email=email)
 
         if user is None:
             raise CredentialsException
         return user
-
-    @classmethod
-    async def authenticate_user(cls, email: str) -> User:
-        user = await cls.get_user(email)
-        if not user:
-            raise IncorrectCredentialsException
-
-        return user
-
-    @classmethod
-    def verify_password(cls, password: str, encode_password: str) -> bool:
-        return cls.hasher.verify(password, encode_password)

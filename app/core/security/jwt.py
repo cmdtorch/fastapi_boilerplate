@@ -4,19 +4,19 @@ import jwt
 
 from app.core.config import settings
 from app.core.exceptions.token import TokenExpiredException, TokenNotValidException
-from app.core.schemas.token import TokenPayloadEncode
+from app.schemas.token import TokenPayloadEncode
 
 
-class TokenHelper:
+class JWTHelper:
     @staticmethod
     def access_token(email: str, exp: int | None = None) -> str:
         """
         Ecode access token for auth
         :param email: user email
-        :param exp: token exp time, default value in config.py
+        :param exp: token exp time, default value in env
         :return: Access token
         """
-        return TokenHelper.encode(
+        return JWTHelper.encode(
             TokenPayloadEncode(
                 sub=email,
                 scope="access",
@@ -29,10 +29,10 @@ class TokenHelper:
         """
         Ecode refresh token for auth
         :param email: user email
-        :param exp: token exp time, default value in config.py
+        :param exp: token exp time, default value in env
         :return: Refresh token
         """
-        return TokenHelper.encode(
+        return JWTHelper.encode(
             TokenPayloadEncode(
                 sub=email,
                 scope="refresh",
@@ -53,26 +53,15 @@ class TokenHelper:
         )
 
     @staticmethod
-    def decode(token: str) -> dict[str, str]:
+    def decode(token: str, verify: bool = True) -> dict[str, str]:
         try:
             return jwt.decode(
                 token,
                 settings.auth.secret_key,
                 settings.auth.algorithm,
+                options={"verify_signature": verify, "verify_exp": verify},
             )
         except jwt.exceptions.DecodeError:
             raise TokenNotValidException from None
         except jwt.exceptions.ExpiredSignatureError:
             raise TokenExpiredException from None
-
-    @staticmethod
-    def decode_expired_token(token: str) -> dict[str, str]:
-        try:
-            return jwt.decode(
-                token,
-                settings.auth.secret_key,
-                settings.auth.algorithm,
-                options={"verify_exp": False},
-            )
-        except jwt.exceptions.DecodeError:
-            raise TokenNotValidException from None
